@@ -1,0 +1,268 @@
+C Binary, Bytes, and Interpretation — Complete Guide
+
+1. What is in a file?
+A file is just a sequence of BYTES.
+Each byte = 8 bits.
+Example:
+11001001
+
+There is no type in a file. No int, no char, no ASCII — just raw bits.
+
+--------------------------------------------------
+
+2. What does fgetc do?
+
+int ch = fgetc(fpr);
+
+fgetc reads EXACTLY 1 byte from the file.
+
+It returns an int because:
+- 0–255 → valid byte
+- -1    → EOF
+
+A char cannot safely represent both.
+
+--------------------------------------------------
+
+3. What gets stored in ch?
+
+If file byte = 11001001 (0xC9 = 201)
+
+Then:
+
+int ch = fgetc(fpr);
+
+Stored as:
+
+00000000 00000000 00000000 11001001
+
+Only the last 8 bits are real data.
+The rest is padding.
+
+Key idea:
+You read 1 byte, but store it in a bigger variable (int).
+
+--------------------------------------------------
+
+4. What happens if you use char?
+
+char ch = fgetc(fpr);
+
+Now the value is forced into 8 bits:
+
+11001001
+
+Interpretation depends on type:
+
+unsigned char:
+11001001 = 201
+
+signed char:
+Leftmost bit = 1 → negative
+
+Flip:
+00110110
+Add 1:
+00110111 = 55
+
+Result:
+-55
+
+Same bits, different meaning.
+
+--------------------------------------------------
+
+5. Printing problem
+
+printf("%02X", ch);
+
+Case 1: int ch
+
+Suppose:
+int ch = 201;
+
+Then inside the int you have:
+
+00000000 00000000 00000000 11001001
+
+When you print with:
+printf("%02X", ch);
+
+printf is already getting an int, so nothing surprising happens.
+It prints the hexadecimal value of that int:
+
+C9
+
+This is why using int ch with fgetc usually works fine.
+
+------------------------------
+
+Case 2: signed char ch = -55
+
+Suppose:
+char ch = -55;
+
+In memory, that signed char stores these 8 bits:
+
+11001001
+
+That is the same bit pattern as 201 if interpreted as unsigned,
+but because ch is signed, those bits mean -55.
+
+Now look at this call:
+
+printf("%02X", ch);
+
+The important detail is:
+printf does NOT receive a char for %X.
+It expects an int.
+
+So before printf runs, C automatically promotes ch from char to int.
+
+--------------------------------------------------
+
+6. What promotion means here
+
+A char is only 8 bits, but an int is usually 32 bits.
+
+So C has to take:
+
+11001001
+
+and turn it into a 32-bit int.
+
+But C does not just stick 24 zeros in front.
+It has to preserve the VALUE of the original signed char.
+
+Since the original char is negative (-55),
+C uses SIGN EXTENSION.
+
+That means:
+copy the leftmost bit (the sign bit) into all the new bits.
+
+Original 8-bit signed char:
+11001001
+
+Promoted 32-bit int:
+11111111 11111111 11111111 11001001
+
+So the promoted int still means -55.
+
+This is the big idea:
+sign extension keeps the numeric value the same while making the type bigger.
+
+--------------------------------------------------
+
+7. Why printf shows FFFFFFC9
+
+After promotion, printf is no longer looking at the original 8-bit char.
+It is looking at the 32-bit int:
+
+11111111 11111111 11111111 11001001
+
+Now %X prints that whole int in hexadecimal:
+
+FFFFFFC9
+
+So printf is not "wrong".
+It is showing the full promoted int value.
+
+That is why you see:
+FFFFFFC9
+
+instead of just:
+C9
+
+--------------------------------------------------
+
+8. Why (unsigned char) fixes it
+
+printf("%02X", (unsigned char)ch);
+
+This cast changes how the 8 bits are interpreted before printing.
+
+Original 8 bits:
+11001001
+
+As signed char:
+-55
+
+As unsigned char:
+201
+
+Now when that unsigned char is promoted to int, C uses zero extension,
+not sign extension, because the value is unsigned.
+
+Promoted int becomes:
+
+00000000 00000000 00000000 11001001
+
+Now %X prints:
+
+C9
+
+So the cast fixes the issue because it tells C:
+"Treat these 8 bits as a raw byte value from 0 to 255, not as a negative signed value."
+
+--------------------------------------------------
+
+9. Final Rules
+
+Rule 1:
+Files store bytes, not types.
+
+Rule 2:
+Types decide how bits are interpreted.
+
+Rule 3:
+signed → leftmost bit = sign
+unsigned → all bits = value
+
+Rule 4:
+When smaller signed types are promoted to int,
+C performs sign extension.
+
+Rule 5:
+fgetc reads 1 byte but returns int.
+
+Rule 6:
+If you want to print a raw byte in hex, unsigned char is the safer interpretation.
+
+--------------------------------------------------
+
+10. Full Flow Example
+
+File byte:
+11001001
+
+fgetc → int:
+00000000 00000000 00000000 11001001
+
+stored in signed char:
+11001001 → -55
+
+promoted back to int for printf:
+11111111 11111111 11111111 11001001
+
+Output:
+FFFFFFC9
+
+with cast to unsigned char:
+11001001 → 201
+
+promoted to int:
+00000000 00000000 00000000 11001001
+
+Output:
+C9
+
+--------------------------------------------------
+
+FINAL TAKEAWAY:
+
+The bits never change.
+Only how C interprets and expands them changes.
+
+For printing raw bytes from a file:
+- use int for the fgetc return value
+- use unsigned char when you want the byte value itself

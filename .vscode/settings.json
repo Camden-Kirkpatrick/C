@@ -1,0 +1,14 @@
+{
+    "files.associations": {
+        "*.embeddedhtml": "html",
+        "stdio.h": "c",
+        "stdbool.h": "c",
+        "display.h": "c",
+        "sdl.h": "c",
+        "triangle.h": "c",
+        "stdint.h": "c",
+        "math.h": "c",
+        "array.h": "c",
+        "stdlib.h": "c"
+    }
+}
